@@ -13,11 +13,13 @@ import com.derivandi.api.processor.ProcessorBuilder;
 import com.derivandi.api.processor.ProcessorConfiguration;
 import com.derivandi.api.processor.SimpleContext;
 
+import java.util.Collection;
 import java.util.stream.Stream;
 
 import static com.derivandi.api.dsl.JavaDsl.*;
 import static com.derivandi.api.dsl.RenderingContext.createRenderingContext;
 import static java.lang.Character.toUpperCase;
+import static java.util.stream.Stream.concat;
 
 @GenerateTypesafeUsage(GeneratePropertiesFor.class)
 public class GeneratePropertiesProcessor
@@ -53,15 +55,19 @@ public class GeneratePropertiesProcessor
 
    private static Stream<D.Class> getAnnotated(SimpleContext context)
    {
-      return Stream.concat(context.getClassesAnnotatedWith(GenerateProperties.class.getName()).stream(),
-                           context.getClassesAnnotatedWith(GeneratePropertiesFor.class.getName()).stream()
-                                  .map(aClass -> aClass.getFirstUsageOfOrThrow(GeneratePropertiesFor.class.getName()))
-                                  .map(GeneratePropertiesForTypesafeUsage::new)
-                                  .map(GeneratePropertiesForTypesafeUsage::valueValue)
-                                  .flatMap(typeValue -> typeValue.getValue().stream())
-                                  .map(D.AnnotationValue.TypeValue::getValue)
-                                  .filter(D.Class.class::isInstance)
-                                  .map(D.Class.class::cast));
+      return concat(concat(context.getClassesAnnotatedWith(GenerateProperties.class.getName()).stream(),
+                           context.getPackagesAnnotatedWith(GenerateProperties.class.getName())
+                                  .stream()
+                                  .map(D.Package::getClasses)
+                                  .flatMap(Collection::stream)),
+                    context.getClassesAnnotatedWith(GeneratePropertiesFor.class.getName()).stream()
+                           .map(aClass -> aClass.getFirstUsageOfOrThrow(GeneratePropertiesFor.class.getName()))
+                           .map(GeneratePropertiesForTypesafeUsage::new)
+                           .map(GeneratePropertiesForTypesafeUsage::valueValue)
+                           .flatMap(typeValue -> typeValue.getValue().stream())
+                           .map(D.AnnotationValue.TypeValue::getValue)
+                           .filter(D.Class.class::isInstance)
+                           .map(D.Class.class::cast));
    }
 
    private static FieldAdditionalNameStep createField(D.Class annotated, D.Property property)
